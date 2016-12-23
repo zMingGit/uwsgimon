@@ -1,16 +1,19 @@
-from setuptools import setup
+# coding: utf-8
+
 import os
 
-VERSION = '0.9'
+from setuptools import setup
+
+VERSION = '0.1'
 
 setup(
-    maintainer='Riccardo Magliocchetti',
-    maintainer_email='riccardo.magliocchetti@gmail.com',
-    name='uwsgitop',
+    maintainer='John Hu',
+    maintainer_email='ushuz@xiachufang.com',
+    name='uwsgimon',
     version=VERSION,
-    description='uWSGI top-like interface',
+    description='uWSGI Monitor',
     license='MIT',
     long_description=open(os.path.join(os.path.dirname(__file__), 'README.rst')).read(),
-    scripts=['uwsgitop'],
+    scripts=['uwsgimon'],
     install_requires = ['simplejson']
 )
