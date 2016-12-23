@@ -6,7 +6,7 @@ can be used to monitor your uwsgi application, e.g. ``InfluxDB``
 ``Graphite``.
 
 To use uWSGI Stat Server simply use the ``stats`` option followed by
-a valid socket address, for example::s
+a valid socket address, for example::
 
     uwsgi --module myapp --socket :3030 --stats /tmp/stats.socket
 
@@ -27,6 +27,8 @@ Installation
 
 Usage
 -----
+
+::
 
     $ uwsgimon --help
     usage: uwsgimon [-h] [--node NODE] [--frequency FREQ] [--format FORMAT] stats
