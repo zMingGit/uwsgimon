@@ -131,7 +131,7 @@ e.g. "{}"'''.format(default_format))
 
 
 import signal
-signal.signal(signal.SIGINT, lambda signal, frame: sys.exit(1))
+signal.signal(signal.SIGINT, lambda signal, frame: sys.exit(130))
 
 
 if __name__ == '__main__':
