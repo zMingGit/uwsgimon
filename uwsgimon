@@ -94,6 +94,10 @@ def run(stats, freq, node, f):
         result['lq'] = int(dd.get('listen_queue', 0))
         result['tx'] = sum([w['tx'] for w in workers])
 
+        _status = [w['status'] for w in workers]
+        result['busy'] = _status.count('busy')
+        result['idle'] = len(_status) - result['busy']
+
         sys.stdout.write(f.strip().format(**result))
         sys.stdout.write('\n')
         sys.stdout.flush()
@@ -102,7 +106,7 @@ def run(stats, freq, node, f):
 
 
 def main():
-    default_format = 'uwsgi,node={node} req={req}i,rps={rps}i,avg={avg},lq={lq}i,tx={tx}i'
+    default_format = 'uwsgi,node={node} req={req}i,rps={rps}i,avg={avg},lq={lq}i,tx={tx}i,busy={busy}i,idle={idle}i'
 
     parser = argparse.ArgumentParser(formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument('--node', '-n', dest='node', default=socket.gethostname(), help='uWSGI node name, current hostname by default')
@@ -116,6 +120,8 @@ def main():
     avg  - average response time
     lq   - listen queue
     tx   - traffic
+    busy - busy workers count
+    idle - idle workers count
 
 e.g. "{}"'''.format(default_format))
 

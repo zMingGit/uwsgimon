@@ -48,8 +48,8 @@ Usage
                                 req  - total requests
                                 rps  - requests per second
                                 avg  - average response time
-                                lq   - listen queue
-                                tx   - traffic
+                                busy - busy workers count
+                                idle - idle workers count
 
                             e.g. "uwsgi,node={node} req={req}i,rps={rps}i,avg={avg},lq={lq}i,tx={tx}i"
 
