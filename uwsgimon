@@ -87,7 +87,8 @@ def run(stats, freq, node, f):
             last_req[w['id']] = w['requests']
         last_ts = time.time()
 
-        result['rps'] = 0 if first else sum([w['rps'] for w in workers])
+        # after reloading, rps maybe a negative number, set it to 0
+        result['rps'] = max(0 if first else sum([w['rps'] for w in workers]), 0)
         first = False
 
         result['avg'] = round(sum([w['avg_rt'] for w in workers]) / float(len(workers)) / 1000.0)
