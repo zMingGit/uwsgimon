@@ -81,23 +81,33 @@ def run(stats, freq, node, f):
         result['node'] = node
         result['req'] = sum([w['requests'] for w in workers])
 
+        _sum_avg = _sum_rss = _sum_vsz = 0
+
         dt = time.time() - last_ts
         for w in workers:
+            # calculate rps
             w['rps'] = int(round((w['requests'] - last_req[w['id']]) / dt))
             last_req[w['id']] = w['requests']
+            # sum to-be-averaged metrics
+            _sum_avg += w['avg_rt']
+            _sum_rss += w['rss']
+            _sum_vsz += w['vsz']
         last_ts = time.time()
 
         # after reloading, rps maybe a negative number, set it to 0
         result['rps'] = max(0 if first else sum([w['rps'] for w in workers]), 0)
         first = False
 
-        result['avg'] = round(sum([w['avg_rt'] for w in workers]) / float(len(workers)) / 1000.0)
+        result['avg'] = round(_sum_avg / float(len(workers)) / 1000.0)
         result['lq'] = int(dd.get('listen_queue', 0))
         result['tx'] = sum([w['tx'] for w in workers])
 
         _status = [w['status'] for w in workers]
         result['busy'] = _status.count('busy')
         result['idle'] = len(_status) - result['busy']
+
+        result['rss'] = int(_sum_rss / float(len(workers)))
+        result['vsz'] = int(_sum_vsz / float(len(workers)))
 
         sys.stdout.write(f.strip().format(**result))
         sys.stdout.write('\n')
@@ -107,7 +117,7 @@ def run(stats, freq, node, f):
 
 
 def main():
-    default_format = 'uwsgi,node={node} req={req}i,rps={rps}i,avg={avg},lq={lq}i,tx={tx}i,busy={busy}i,idle={idle}i'
+    default_format = 'uwsgi,node={node} req={req}i,rps={rps}i,avg={avg},lq={lq}i,busy={busy}i,idle={idle}i,rss={rss}i'
 
     parser = argparse.ArgumentParser(formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument('--node', '-n', dest='node', default=socket.gethostname(), help='uWSGI node name, current hostname by default')
@@ -120,9 +130,10 @@ def main():
     rps  - requests per second
     avg  - average response time
     lq   - listen queue
-    tx   - traffic
     busy - busy workers count
     idle - idle workers count
+    rss  - average RSS (Resident Set Size)
+    vsz  - average VSZ (Virtual Memory Size)
 
 e.g. "{}"'''.format(default_format))
 
