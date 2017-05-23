@@ -4,7 +4,7 @@ import os
 
 from setuptools import setup
 
-VERSION = '0.2.0'
+VERSION = '0.4.0'
 
 setup(
     maintainer='John Hu',
@@ -15,5 +15,5 @@ setup(
     license='MIT',
     long_description=open(os.path.join(os.path.dirname(__file__), 'README.rst')).read(),
     scripts=['uwsgimon'],
-    install_requires = ['simplejson']
+    install_requires=['simplejson']
 )
