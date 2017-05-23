@@ -33,7 +33,7 @@ def abstract_unix_addr(arg):
     return sfamily, addr, socket.gethostname()
 
 
-def run(stats, freq, node, f):
+def run(stats, freq, node, role, f):
     if ':' in stats:
         sfamily, addr, host = inet_addr(stats)
     elif stats.startswith('@'):
@@ -78,6 +78,7 @@ def run(stats, freq, node, f):
         result = dict()
         result['ver'] = dd.get('version', 'unknown')
         result['node'] = node
+        result['role'] = role
         result['req'] = sum([w['requests'] for w in workers])
 
         _sum_avg = _sum_rss = _sum_vsz = 0
@@ -116,15 +117,17 @@ def run(stats, freq, node, f):
 
 
 def main():
-    default_format = 'uwsgi,node={node} req={req}i,rps={rps}i,avg={avg},lq={lq}i,busy={busy}i,idle={idle}i,rss={rss}i'
+    default_format = 'uwsgi,node={node},role={role} req={req}i,rps={rps}i,avg={avg},lq={lq}i,busy={busy}i,idle={idle}i,rss={rss}i'
 
     parser = argparse.ArgumentParser(formatter_class=argparse.RawTextHelpFormatter)
-    parser.add_argument('--node', '-n', dest='node', default=socket.gethostname(), help='uWSGI node name, current hostname by default')
+    parser.add_argument('--node', '-n', dest='node', default=socket.gethostname(), help='uWSGI node name, default: "{}"'.format(socket.gethostname()))
+    parser.add_argument('--role', '-r', dest='role', default='uwsgi', help='uWSGI role name, default: "uwsgi"')
     parser.add_argument('--frequency', '-q', dest='freq', default=1, type=float, help='uWSGI stats refresh frequency, in seconds')
     parser.add_argument('--format', '-f', dest='format', default=default_format,
                         help='''output format, available variables:
     ver  - uWSGI version
     node - uWSGI node name
+    role - uWSGI role name
     req  - total requests
     rps  - requests per second
     avg  - average response time
@@ -141,7 +144,7 @@ e.g. "{}"'''.format(default_format))
     args = parser.parse_args()
 
     try:
-        run(stats=args.stats, freq=args.freq, node=args.node, f=args.format)
+        run(stats=args.stats, freq=args.freq, node=args.node, role=args.role, f=args.format)
     except IOError as e:
         if e.errno == errno.EPIPE:
             sys.exit(0)
