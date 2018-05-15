@@ -3,6 +3,7 @@
 
 import argparse
 import errno
+import os
 try:
     import simplejson as json
 except ImportError:
@@ -33,7 +34,7 @@ def abstract_unix_addr(arg):
     return sfamily, addr, socket.gethostname()
 
 
-def run(stats, freq, node, role, f):
+def run(stats, node, role, freq, f):
     if ':' in stats:
         sfamily, addr, host = inet_addr(stats)
     elif stats.startswith('@'):
@@ -117,13 +118,16 @@ def run(stats, freq, node, role, f):
 
 
 def main():
-    default_format = 'uwsgi,node={node},role={role} req={req}i,rps={rps}i,avg={avg},lq={lq}i,busy={busy}i,idle={idle}i,rss={rss}i'
+    DEFAULT_NODE = socket.gethostname()
+    DEFAULT_ROLE = 'uwsgi'
+    DEFAULT_FREQ = 5
+    DEFAULT_FORMAT = 'uwsgi,node={node},role={role} req={req}i,rps={rps}i,avg={avg},lq={lq}i,busy={busy}i,idle={idle}i,rss={rss}i'
 
     parser = argparse.ArgumentParser(formatter_class=argparse.RawTextHelpFormatter)
-    parser.add_argument('--node', '-n', dest='node', default=socket.gethostname(), help='uWSGI node name, default: "{}"'.format(socket.gethostname()))
-    parser.add_argument('--role', '-r', dest='role', default='uwsgi', help='uWSGI role name, default: "uwsgi"')
-    parser.add_argument('--frequency', '-q', dest='freq', default=1, type=float, help='uWSGI stats refresh frequency, in seconds')
-    parser.add_argument('--format', '-f', dest='format', default=default_format,
+    parser.add_argument('--node', '-n', dest='node', default=None, help='uWSGI node name, default: "{}"'.format(DEFAULT_NODE))
+    parser.add_argument('--role', '-r', dest='role', default=None, help='uWSGI role name, default: "{}"'.format(DEFAULT_ROLE))
+    parser.add_argument('--frequency', '-q', dest='freq', default=None, type=float, help='uWSGI stats refresh frequency in seconds, default: {}'.format(DEFAULT_FREQ))
+    parser.add_argument('--format', '-f', dest='format', default=None,
                         help='''output format, available variables:
     ver  - uWSGI version
     node - uWSGI node name
@@ -136,15 +140,18 @@ def main():
     idle - idle workers count
     rss  - average RSS (Resident Set Size)
     vsz  - average VSZ (Virtual Memory Size)
-
-e.g. "{}"'''.format(default_format))
-
+e.g. "{}"'''.format(DEFAULT_FORMAT))
     parser.add_argument('stats', help='uWSGI stats address')
 
     args = parser.parse_args()
 
+    node = args.node or os.getenv('UWSGIMON_NODE') or DEFAULT_NODE
+    role = args.role or os.getenv('UWSGIMON_ROLE') or DEFAULT_ROLE
+    freq = args.freq or os.getenv('UWSGIMON_FREQ') or DEFAULT_FREQ
+    format_ = args.format or os.getenv('UWSGIMON_FORMAT') or DEFAULT_FORMAT
+
     try:
-        run(stats=args.stats, freq=args.freq, node=args.node, role=args.role, f=args.format)
+        run(stats=args.stats, node=node, role=role, freq=float(freq), f=format_)
     except IOError as e:
         if e.errno == errno.EPIPE:
             sys.exit(0)
