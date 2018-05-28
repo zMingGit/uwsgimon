@@ -34,7 +34,17 @@ def abstract_unix_addr(arg):
     return sfamily, addr, socket.gethostname()
 
 
-def run(stats, node, role, freq, f):
+def udp_send(dest, data):
+    host, port = dest.replace('udp://', '').split(':')
+    s = socket.socket(type=socket.SOCK_DGRAM)
+    try:
+        s.setblocking(0)
+        s.sendto(bytearray(data, 'utf-8'), (host, int(port)))
+    finally:
+        s.close()
+
+
+def run(stats, node, role, freq, f, udp=None):
     if ':' in stats:
         sfamily, addr, host = inet_addr(stats)
     elif stats.startswith('@'):
@@ -110,9 +120,13 @@ def run(stats, node, role, freq, f):
         result['rss'] = int(_sum_rss / float(len(workers)))
         result['vsz'] = int(_sum_vsz / float(len(workers)))
 
-        sys.stdout.write(f.strip().format(**result))
-        sys.stdout.write('\n')
-        sys.stdout.flush()
+        line = '{}\n'.format(f.strip().format(**result))
+
+        if udp:
+            udp_send(udp, line)
+        else:
+            sys.stdout.write(line)
+            sys.stdout.flush()
 
         time.sleep(freq)
 
@@ -122,6 +136,7 @@ def main():
     DEFAULT_ROLE = 'uwsgi'
     DEFAULT_FREQ = 5
     DEFAULT_FORMAT = 'uwsgi,node={node},role={role} req={req}i,rps={rps}i,avg={avg},lq={lq}i,busy={busy}i,idle={idle}i,rss={rss}i'
+    DEFAULT_UDP = None
 
     parser = argparse.ArgumentParser(formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument('--node', '-n', dest='node', default=None, help='uWSGI node name, default: "{}"'.format(DEFAULT_NODE))
@@ -141,6 +156,7 @@ def main():
     rss  - average RSS (Resident Set Size)
     vsz  - average VSZ (Virtual Memory Size)
 e.g. "{}"'''.format(DEFAULT_FORMAT))
+    parser.add_argument('--udp', '-u', dest='udp', default=None, help='output to UDP destination ("[udp://]<host>:<port>"), instead of stdout, default: {}'.format(DEFAULT_UDP))
     parser.add_argument('stats', help='uWSGI stats address')
 
     args = parser.parse_args()
@@ -149,12 +165,14 @@ e.g. "{}"'''.format(DEFAULT_FORMAT))
     role = args.role or os.getenv('UWSGIMON_ROLE') or DEFAULT_ROLE
     freq = args.freq or os.getenv('UWSGIMON_FREQ') or DEFAULT_FREQ
     format_ = args.format or os.getenv('UWSGIMON_FORMAT') or DEFAULT_FORMAT
+    udp = args.udp or os.getenv('UWSGIMON_UDP') or DEFAULT_UDP
 
     try:
-        run(stats=args.stats, node=node, role=role, freq=float(freq), f=format_)
+        run(stats=args.stats, node=node, role=role, freq=float(freq), f=format_, udp=udp)
     except IOError as e:
         if e.errno == errno.EPIPE:
             sys.exit(0)
+        raise
 
 
 import signal
