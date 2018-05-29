@@ -1,0 +1,148 @@
+#!/usr/bin/env python
+# coding: utf-8
+
+from __future__ import absolute_import, print_function
+
+import io
+import os
+import six
+
+
+SUPERVISORD_CONF_DEST = '/tmp/supervisord.conf'
+SUPERVISORD_CONF_CONTENT = '''
+[supervisord]
+nodaemon=true
+
+[group:uwsgi]
+programs=uwsgi,uwsgimon
+
+[program:uwsgi]
+command=%(VENVDIR)s/bin/uwsgi
+startsecs=5
+autorestart=false
+stopasgroup=true
+killasgroup=true
+stdout_logfile=/dev/stdout
+stdout_logfile_maxbytes=0
+stderr_logfile=/dev/stderr
+stderr_logfile_maxbytes=0
+
+[program:uwsgimon]
+command=%(VENVDIR)s/bin/uwsgimon %(ENV_UWSGI_STATS)s
+startsecs=5
+autorestart=true
+stopasgroup=true
+killasgroup=true
+stdout_logfile=/dev/stdout
+stdout_logfile_maxbytes=0
+stderr_logfile=/dev/stderr
+stderr_logfile_maxbytes=0
+'''
+
+UWSGIMON_STATS = '/tmp/uwsgi-stats.sock'
+UWSGIMON_PID = '/tmp/uwsgimon.pid'
+
+
+def convert_options_to_env(options):
+    for k, v in six.iteritems(options):
+        if v is None:
+            continue
+        key = 'UWSGI_' + k.upper().replace('-', '_')
+        if isinstance(v, six.string_types):
+            value = v
+        elif v is True:
+            value = 'true'
+        elif v is False:
+            value = 'false'
+        elif isinstance(v, six.integer_types):
+            value = six.text_type(v)
+        else:
+            raise TypeError('Unknown option type: %r (%s)' % (k, type(v)))
+        yield key, value
+
+
+def prepare_uwsgi_environment():
+    options = {}
+
+    # following options may differ from app to app
+    # should be provided by app maintainers
+    # - chdir
+    # - module
+    # - socket / gevent / http, etc
+    # - virtualenv
+    # - workers
+
+    # set options based on CODEDIR / VENVDIR
+    if os.getenv('CODEDIR'):
+        options.setdefault('chdir', os.getenv('CODEDIR'))
+    if os.getenv('VENVDIR'):
+        options.setdefault('virtualenv', os.getenv('VENVDIR'))
+
+    # default options
+    options.setdefault('die-on-term', True)
+    options.setdefault('disable-logging', True)
+    options.setdefault('enable-threads', True)
+    options.setdefault('master', True)
+    options.setdefault('need-app', True)
+    options.setdefault('reload-on-rss', 600)
+    options.setdefault('single-interpreter', True)
+    options.setdefault('skip-atexit-teardown', True)
+    options.setdefault('strict', True)
+    # options.setdefault('vacuum', True)
+
+    # ignore annoying "write error"
+    options.setdefault('disable-write-exception', True)
+    options.setdefault('ignore-write-errors', True)
+    options.setdefault('ignore-sigpipe', True)
+
+    # we tend to use http protocol to take advantage of keep-alive
+    # set relatively large buffer sizes
+    options.setdefault('post-buffering', 65536)
+    options.setdefault('buffer-size', 32768)
+
+    # enable tcp-level keep-alive
+    options.setdefault('so-keepalive', True)
+    options.setdefault('socket-timeout', 900)
+
+    # expose stats server for uwsgimon
+    options.setdefault('stats', UWSGIMON_STATS)
+    options.setdefault('memory-report', True)
+
+    for k, v in convert_options_to_env(options):
+        os.environ.setdefault(k, v)
+
+
+def run_supervisord():
+    # write supervisord config file
+    with io.open(SUPERVISORD_CONF_DEST) as f:
+        f.write(SUPERVISORD_CONF_CONTENT)
+
+        # ensure data flushed to disk before execvp()
+        f.flush()
+        os.fsync(f.fileno())
+
+    # launch supervisord process
+    os.execvp('supervisord', ('supervisord', '-c', SUPERVISORD_CONF_DEST))
+
+
+def run_uwsgi_hook():
+    os.environ['UWSGI_BINSH'] = '/bin/bash'
+    os.environ['UWSGI_HOOK_ACCEPTING1_ONCE'] = 'exec:uwsgimon --forever {0} & echo $! > {1} || true'.format(UWSGIMON_STATS, UWSGIMON_PID)
+    os.environ['UWSGI_HOOK_AS_USER_ATEXIT'] = 'exec:kill $(cat {0}) && rm -f {0} || true'.format(UWSGIMON_PID)
+
+    os.execvp('uwsgi', ('uwsgi',))
+
+
+def main():
+    # prepare options for uwsgi
+    prepare_uwsgi_environment()
+
+    # # supervisor doesn't support Python 3 yet
+    # run_supervisord()
+
+    # run uwsgimon with uwsgi hook
+    run_uwsgi_hook()
+
+
+if __name__ == '__main__':
+    main()

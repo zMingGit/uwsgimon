@@ -4,7 +4,7 @@ import os
 
 from setuptools import setup
 
-VERSION = '0.7.0'
+VERSION = '0.7.0+launcher.1'
 
 setup(
     maintainer='John Hu',
@@ -14,6 +14,6 @@ setup(
     description='uWSGI Monitor',
     license='MIT',
     long_description=open(os.path.join(os.path.dirname(__file__), 'README.rst')).read(),
-    scripts=['uwsgimon'],
-    install_requires=['simplejson']
+    scripts=['uwsgimon', 'uwsgimon-launcher'],
+    install_requires=['simplejson', 'six', 'uwsgi<2.1']
 )
