@@ -137,6 +137,7 @@ def main():
     DEFAULT_FREQ = 5
     DEFAULT_FORMAT = 'uwsgi,node={node},role={role} req={req}i,rps={rps}i,avg={avg},lq={lq}i,busy={busy}i,idle={idle}i,rss={rss}i'
     DEFAULT_UDP = None
+    DEFAULT_FOREVER = False
 
     parser = argparse.ArgumentParser(formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument('--node', '-n', dest='node', default=None, help='uWSGI node name, default: "{}"'.format(DEFAULT_NODE))
@@ -157,22 +158,34 @@ def main():
     vsz  - average VSZ (Virtual Memory Size)
 e.g. "{}"'''.format(DEFAULT_FORMAT))
     parser.add_argument('--udp', '-u', dest='udp', default=None, help='output to UDP destination ("[udp://]<host>:<port>"), instead of stdout, default: {}'.format(DEFAULT_UDP))
+    parser.add_argument('--forever', dest='forever', default=None, action='store_const', const=True, help='ignore all exceptions and run forever, default: {}'.format(DEFAULT_FOREVER))
     parser.add_argument('stats', help='uWSGI stats address')
 
     args = parser.parse_args()
 
     node = args.node or os.getenv('UWSGIMON_NODE') or DEFAULT_NODE
     role = args.role or os.getenv('UWSGIMON_ROLE') or DEFAULT_ROLE
-    freq = args.freq or os.getenv('UWSGIMON_FREQ') or DEFAULT_FREQ
+    freq = float(args.freq or os.getenv('UWSGIMON_FREQ') or DEFAULT_FREQ)
     format_ = args.format or os.getenv('UWSGIMON_FORMAT') or DEFAULT_FORMAT
     udp = args.udp or os.getenv('UWSGIMON_UDP') or DEFAULT_UDP
+    forever = args.forever is not None or os.getenv('UWSGIMON_FOREVER') is not None or DEFAULT_FOREVER
 
-    try:
-        run(stats=args.stats, node=node, role=role, freq=float(freq), f=format_, udp=udp)
-    except IOError as e:
-        if e.errno == errno.EPIPE:
-            sys.exit(0)
-        raise
+    if forever:
+        while True:
+            try:
+                run(stats=args.stats, node=node, role=role, freq=freq, f=format_, udp=udp)
+            except Exception as e:
+                sys.stderr.write('forever: {}\n'.format(e))
+                sys.stderr.flush()
+                time.sleep(freq)
+                continue
+    else:
+        try:
+            run(stats=args.stats, node=node, role=role, freq=freq, f=format_, udp=udp)
+        except IOError as e:
+            if e.errno == errno.EPIPE:
+                sys.exit(0)
+            raise
 
 
 import signal
