@@ -86,7 +86,7 @@ def prepare_uwsgi_environment():
     options.setdefault('need-app', True)
     options.setdefault('reload-on-rss', 600)
     options.setdefault('single-interpreter', True)
-    options.setdefault('skip-atexit-teardown', True)
+    # options.setdefault('skip-atexit-teardown', True)
     options.setdefault('strict', True)
     # options.setdefault('vacuum', True)
 
