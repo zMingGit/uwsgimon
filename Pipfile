@@ -6,4 +6,4 @@ name = "pypi"
 [dev-packages]
 
 [packages]
-"e1839a8" = {path = ".", editable = true}
+uwsgimon = {path = ".", editable = true}
